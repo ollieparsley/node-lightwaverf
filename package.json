@@ -1,0 +1,21 @@
+{
+  "name": "lightwaverf",
+  "description": "Lightwave RF client library",
+  "version": "0.0.1",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/ollieparsley/node-lightwaverf.git"
+  },
+  "keywords": [
+    "lightwaverf"
+  ],
+  "author": "Ollie Parsley",
+  "license": "BSD-2-Clause",
+  "bugs": {
+    "url": "https://github.com/ollieparsley/node-lightwaverf/issues"
+  }
+}
