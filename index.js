@@ -97,10 +97,10 @@ LightwaveRF.prototype.requestEnergy = function(callback) {
 			//ID,?W=current,max,today,yesterday (all kwh)
 			var values = content.substring(3).split(",");
 			callback(undefined, {
-				current:   parseInt(values[0]),
-				max:       parseInt(values[1]), 
-				today:     parseInt(values[2]),
-				yesterday: parseInt(values[3])
+				current:   parseInt(values[0], 10),
+				max:       parseInt(values[1], 10), 
+				today:     parseInt(values[2], 10),
+				yesterday: parseInt(values[3], 10)
 			});
 		}
 	});
@@ -157,7 +157,7 @@ LightwaveRF.prototype.turnRoomOff = function(roomId, callback) {
  * @return void
  */
 LightwaveRF.prototype.setDeviceDim = function(roomId, deviceId, dimPercentage , callback) {
-	var dimAmount = parseInt(dimPercentage * 0.32); //Dim is on a scale from 0 to 32
+	var dimAmount = parseInt(dimPercentage * 0.32, 10); //Dim is on a scale from 0 to 32
 	this.sendUdp("!R" + roomId + "D" + deviceId + "FdP" + dimAmount + "|\0", callback);
 }
 
@@ -205,7 +205,7 @@ LightwaveRF.prototype.sendUdp = function(message, callback){
 	
 	//Add listener
 	if (callback) {
-		this.responseListeners[parseInt(code).toString()] = {
+		this.responseListeners[parseInt(code, 10).toString()] = {
 			time: new Date().getTime(),
 			listener: function(returnedCode, content) {
 				callback(undefined, content);
