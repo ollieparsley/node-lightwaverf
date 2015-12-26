@@ -1,6 +1,9 @@
 var util = require('util');
 var events = require('events');
 var dgram = require('dgram');
+var https = require('https');
+var querystring = require('querystring');
+var wait = require('wait.for')
 
 /**
  * LightwaveRF API
@@ -10,6 +13,13 @@ var dgram = require('dgram');
  * An instance of the LightwaveRF API
  */
 function LightwaveRF(config) {
+    if (!(this instanceof LightwaveRF))  {
+        return new LightwaveRF(config);
+    }
+    this.timeout = config.timeout || 1000;
+    this.queue = [];
+    this.ready = true;
+
 	events.EventEmitter.call(this);
 	
 	//Counter
@@ -22,6 +32,12 @@ function LightwaveRF(config) {
 	if (!this.config.ip) {
 		throw new Error("The IP address must be specified in the config");
 	}
+    if(!this.config.email || !this.config.pin) {
+        console.log("No email or pin specified. The server configuration (rooms, devices, etc.) cannot be obtained")
+    }
+    else {
+        this.getConfiguration(this.config.email,this.config.pin)
+    }
 	
 	//Response listeners
 	this.responseListeners = {};
@@ -117,7 +133,7 @@ LightwaveRF.prototype.requestEnergy = function(callback) {
  */
 LightwaveRF.prototype.turnDeviceOff = function(roomId, deviceId, callback) {
 	var state = "0";
-	this.sendUdp("!R" + roomId + "D" + deviceId + "F" + state + "|\0", callback);
+	this.exec("!R" + roomId + "D" + deviceId + "F" + state + "|\0", callback);
 }
 
 /**
@@ -131,7 +147,7 @@ LightwaveRF.prototype.turnDeviceOff = function(roomId, deviceId, callback) {
  */
 LightwaveRF.prototype.turnDeviceOn = function(roomId, deviceId, callback) {
 	var state = "1";
-	this.sendUdp("!R" + roomId + "D" + deviceId + "F" + state + "|\0", callback);
+	this.exec("!R" + roomId + "D" + deviceId + "F" + state + "|\0", callback);
 }
 
 /**
@@ -143,7 +159,7 @@ LightwaveRF.prototype.turnDeviceOn = function(roomId, deviceId, callback) {
  * @return void
  */
 LightwaveRF.prototype.turnRoomOff = function(roomId, callback) {
-	this.sendUdp("!R" + roomId + "Fa\0", callback);
+	this.exec("!R" + roomId + "Fa\0", callback);
 }
 
 /**
@@ -158,7 +174,7 @@ LightwaveRF.prototype.turnRoomOff = function(roomId, callback) {
  */
 LightwaveRF.prototype.setDeviceDim = function(roomId, deviceId, dimPercentage , callback) {
 	var dimAmount = parseInt(dimPercentage * 0.32, 10); //Dim is on a scale from 0 to 32
-	this.sendUdp("!R" + roomId + "D" + deviceId + "FdP" + dimAmount + "|\0", callback);
+	this.exec("!R" + roomId + "D" + deviceId + "FdP" + dimAmount + "|\0", callback);
 }
 
 /**
@@ -180,6 +196,19 @@ LightwaveRF.prototype.getMessageCode = function() {
 	return code;
 }
 
+LightwaveRF.prototype.send = function(cmd, callback) {
+    this.sendUdp(cmd, callback);
+    //if (callback) callback();
+};
+
+LightwaveRF.prototype.exec = function() {
+    // Check if the queue has a reasonable size
+    if(this.queue.size > 10) this.queue.clear();
+    
+    this.queue.push(arguments);
+    this.process();
+};
+
 /**
  * Send a message over udp
  * 
@@ -195,7 +224,7 @@ LightwaveRF.prototype.sendUdp = function(message, callback){
 	//Prepend code to message
 	message = code + "," + message;
 	
-	//console.log("Sending message: " + message);
+	console.log("Sending message: " + message);
 	
 	//Create buffer from message
 	var buffer = new Buffer(message);
@@ -212,7 +241,168 @@ LightwaveRF.prototype.sendUdp = function(message, callback){
 			}
 		}
 	}
+}
 
+LightwaveRF.prototype.process = function() {
+    if (this.queue.length === 0) return;
+    if (!this.ready) return;
+    var self = this;
+    this.ready = false;
+    this.send.apply(this, this.queue.shift());
+    setTimeout(function () {
+               self.ready = true;
+               self.process();
+               }, this.timeout);
+};
+
+
+/**
+ * Parser to get de devices from https POST
+ */
+LightwaveRF.prototype.getDevices = function(roomsString,devicesString,typesString){
+    var devices = [];//[{roomId:0,roomName:'',
+                     //deviceId:0,deviceName:'',
+                     //deviceType:''}];
+    
+    var nrRooms = 8;
+    var nrDevicesPerRoom = 10;
+    
+    var tempRS = roomsString;
+    var tempDS = devicesString;
+    var tempTS = typesString;
+    var deviceCounter = 0;
+    for(var i=0;i<nrRooms;i++) {
+        var rId = i+1;
+        
+        tempRS = tempRS.substring(tempRS.indexOf('\"')+1);
+        var rName = tempRS.substring(0,tempRS.indexOf('\"'));
+        tempRS = tempRS.substring(tempRS.indexOf('\"')+1);
+        //console.log("room=" + rName);
+        
+        for(var j=0;j<nrDevicesPerRoom;j++) {
+            var dId = j+1;
+            
+            tempDS = tempDS.substring(tempDS.indexOf('\"')+1);
+            var dName = tempDS.substring(0,tempDS.indexOf('\"'));
+            tempDS = tempDS.substring(tempDS.indexOf('\"')+1);
+            //console.log("devices=" + dName);
+            
+            tempTS = tempTS.substring(tempTS.indexOf('\"')+1);
+            var dType = tempTS.substring(0,tempTS.indexOf('\"'));
+            tempTS = tempTS.substring(tempTS.indexOf('\"')+1);
+            //console.log("devices=" + deviceName + " type=" + dType);
+            
+            // Get device types
+            //   O: On/Off Switch
+            //   D: Dimmer
+            //   R: Radiator(s)
+            //   P: Open/Close
+            //   I: Inactive (i.e. not configured)
+            //   m: Mood (inactive)
+            //   M: Mood (active)
+            //   o: All Off
+            if(dType == "O" || dType == "D") {
+                devices.push({roomId:rId,roomName:rName,
+                              deviceId:dId,deviceName:dName,
+                              deviceType:dType});
+                //console.log("devices=" + deviceName + " type=" + deviceType);
+                deviceCounter += 1;
+            }
+        }
+    }
+    
+    console.log(devices);
+}
+
+/**
+ * Connect to the server and obtain the configuration
+ */
+LightwaveRF.prototype.getConfiguration = function(email,pin){
+    // An object of options to indicate where to post to
+    var post_options = {
+        //host: 'lightwaverfhost.co.uk',
+        host: 'web.trustsmartcloud.com',
+        port: 443,
+        path: '/manager/index.php',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        rejectUnauthorized:false
+    };
+    
+    // Build the post string from an object
+    var post_data = 'pin=' + pin + '&email=' + email;
+    
+    // Set up the request
+    var post_req = https.request(post_options, function(res) {
+                                 var body = '';
+                                 res.setEncoding('utf8');
+                                 res.on('data', function (chunk) {
+                                        body += chunk;
+                                        
+                                        // Too much POST data, kill the connection!
+                                        // 1e6 === 1 * Math.pow(10, 6) === 1 * 1000000 ~~~ 1MB
+                                        if (body.length > 1e6)
+                                            res.connection.destroy();
+                                        
+                                        //console.log('Response: ' + chunk);
+                                        });
+                                 res.on('end', function () {
+                                        var bodyString = body.toString();
+                                        
+                                        // Get rooms
+                                        // Rooms - gRoomNames is a collection of 8 values, or room names
+                                        var indexRoomsStart = bodyString.indexOf('gRoomNames');
+                                        
+                                        if(indexRoomsStart < 0) {console.log('gRoomNames not found'); return;}
+                                        
+                                        var roomsString = bodyString.substring(indexRoomsStart);
+                                        var indexRoomsEnd = roomsString.indexOf(';');
+                                        roomsString = roomsString.substring(0,indexRoomsEnd);
+                                        
+                                        console.log(roomsString);
+                                        
+                                        // Get devices
+                                        // Devices - gDeviceNames is a collection of 80 values, structured in blocks of ten values for each room:
+                                        //   Devices 1 - 6, Mood 1 - 3, All Off
+                                        var indexDevicesStart = bodyString.indexOf('gDeviceNames');
+                                        
+                                        if(indexDevicesStart < 0) {console.log('gDeviceNames not found'); return;}
+                                        
+                                        var devicesString = bodyString.substring(indexDevicesStart);
+                                        var indexDevicesEnd = devicesString.indexOf(';');
+                                        devicesString = devicesString.substring(0,indexDevicesEnd);
+                                        
+                                        console.log(devicesString);
+                                        
+                                        // Get device types
+                                        //   O: On/Off Switch
+                                        //   D: Dimmer
+                                        //   R: Radiator(s)
+                                        //   P: Open/Close
+                                        //   I: Inactive (i.e. not configured)
+                                        //   m: Mood (inactive)
+                                        //   M: Mood (active)
+                                        //   o: All Off
+                                        var indexTypesStart = bodyString.indexOf('gDeviceStatus');
+                                        
+                                        if(indexTypesStart < 0) {console.log('gDeviceStatus not found'); return;}
+                                        
+                                        var typesString = bodyString.substring(indexTypesStart);
+                                        var indexTypesEnd = typesString.indexOf(';');
+                                        typesString = typesString.substring(0,indexTypesEnd);
+                                        
+                                        console.log(typesString);
+                                        
+                                        LightwaveRF.prototype.getDevices(roomsString,devicesString,typesString);
+                                        
+                                        });
+                                 });
+    
+    // post the data
+    post_req.write(post_data);
+    post_req.end();
 }
 
 module.exports = LightwaveRF;
