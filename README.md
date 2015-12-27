@@ -12,7 +12,7 @@ A NodeJS library for controlling devices using the LightwaveRF Wi-Fi Link
 ### Initialize
 
     var LightwaveRF = require("lightwaverf");
-    var lw = new LightwaveRF({ip:"192.168.1.123"});
+    var lw = new LightwaveRF({ip:"192.168.1.123",email:"name@host.com",pin:"0123"});
 
 ### Turn a device on
 
