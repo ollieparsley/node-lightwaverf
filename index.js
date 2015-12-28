@@ -19,6 +19,10 @@ function LightwaveRF(config) {
     this.timeout = config.timeout || 1000;
     this.queue = [];
     this.ready = true;
+    
+    this.devices = [];//[{roomId:0,roomName:'',
+    //deviceId:0,deviceName:'',
+    //deviceType:''}];
 
 	events.EventEmitter.call(this);
 	
@@ -260,9 +264,6 @@ LightwaveRF.prototype.process = function() {
  * Parser to get de devices from https POST
  */
 LightwaveRF.prototype.getDevices = function(roomsString,devicesString,typesString){
-    var devices = [];//[{roomId:0,roomName:'',
-                     //deviceId:0,deviceName:'',
-                     //deviceType:''}];
     
     var nrRooms = 8;
     var nrDevicesPerRoom = 10;
@@ -302,16 +303,16 @@ LightwaveRF.prototype.getDevices = function(roomsString,devicesString,typesStrin
             //   M: Mood (active)
             //   o: All Off
             if(dType == "O" || dType == "D") {
-                devices.push({roomId:rId,roomName:rName,
-                              deviceId:dId,deviceName:dName,
-                              deviceType:dType});
+                this.devices.push({roomId:rId,roomName:rName,
+                                   deviceId:dId,deviceName:dName,
+                                   deviceType:dType});
                 //console.log("devices=" + deviceName + " type=" + deviceType);
                 deviceCounter += 1;
             }
         }
     }
     
-    console.log(devices);
+    console.log(this.devices);
 }
 
 /**
@@ -335,6 +336,7 @@ LightwaveRF.prototype.getConfiguration = function(email,pin){
     var post_data = 'pin=' + pin + '&email=' + email;
     
     // Set up the request
+    var that = this;
     var post_req = https.request(post_options, function(res) {
                                  var body = '';
                                  res.setEncoding('utf8');
@@ -395,7 +397,7 @@ LightwaveRF.prototype.getConfiguration = function(email,pin){
                                         
                                         console.log(typesString);
                                         
-                                        LightwaveRF.prototype.getDevices(roomsString,devicesString,typesString);
+                                        that.getDevices(roomsString,devicesString,typesString);
                                         
                                         });
                                  });
