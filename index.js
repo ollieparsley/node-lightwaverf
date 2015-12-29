@@ -312,7 +312,7 @@ LightwaveRF.prototype.getDevices = function(roomsString,devicesString,typesStrin
         }
     }
     
-    console.log(this.devices);
+    //console.log(this.devices);
 }
 
 /**
@@ -363,7 +363,7 @@ LightwaveRF.prototype.getConfiguration = function(email,pin){
                                         var indexRoomsEnd = roomsString.indexOf(';');
                                         roomsString = roomsString.substring(0,indexRoomsEnd);
                                         
-                                        console.log(roomsString);
+                                        //console.log(roomsString);
                                         
                                         // Get devices
                                         // Devices - gDeviceNames is a collection of 80 values, structured in blocks of ten values for each room:
@@ -376,7 +376,7 @@ LightwaveRF.prototype.getConfiguration = function(email,pin){
                                         var indexDevicesEnd = devicesString.indexOf(';');
                                         devicesString = devicesString.substring(0,indexDevicesEnd);
                                         
-                                        console.log(devicesString);
+                                        //console.log(devicesString);
                                         
                                         // Get device types
                                         //   O: On/Off Switch
@@ -395,7 +395,7 @@ LightwaveRF.prototype.getConfiguration = function(email,pin){
                                         var indexTypesEnd = typesString.indexOf(';');
                                         typesString = typesString.substring(0,indexTypesEnd);
                                         
-                                        console.log(typesString);
+                                        //console.log(typesString);
                                         
                                         that.getDevices(roomsString,devicesString,typesString);
                                         
