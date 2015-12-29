@@ -12,7 +12,7 @@ var wait = require('wait.for')
  *
  * An instance of the LightwaveRF API
  */
-function LightwaveRF(config) {
+function LightwaveRF(config,callback) {
     if (!(this instanceof LightwaveRF))  {
         return new LightwaveRF(config);
     }
@@ -40,7 +40,7 @@ function LightwaveRF(config) {
         console.log("No email or pin specified. The server configuration (rooms, devices, etc.) cannot be obtained")
     }
     else {
-        this.getConfiguration(this.config.email,this.config.pin)
+        this.getConfiguration(this.config.email,this.config.pin,callback)
     }
 	
 	//Response listeners
@@ -263,7 +263,7 @@ LightwaveRF.prototype.process = function() {
 /**
  * Parser to get de devices from https POST
  */
-LightwaveRF.prototype.getDevices = function(roomsString,devicesString,typesString){
+LightwaveRF.prototype.getDevices = function(roomsString,devicesString,typesString,callback){
     
     var nrRooms = 8;
     var nrDevicesPerRoom = 10;
@@ -312,13 +312,15 @@ LightwaveRF.prototype.getDevices = function(roomsString,devicesString,typesStrin
         }
     }
     
+    if(callback) callback(this.devices);
+    
     //console.log(this.devices);
 }
 
 /**
  * Connect to the server and obtain the configuration
  */
-LightwaveRF.prototype.getConfiguration = function(email,pin){
+LightwaveRF.prototype.getConfiguration = function(email,pin,callback){
     // An object of options to indicate where to post to
     var post_options = {
         //host: 'lightwaverfhost.co.uk',
@@ -397,7 +399,7 @@ LightwaveRF.prototype.getConfiguration = function(email,pin){
                                         
                                         //console.log(typesString);
                                         
-                                        that.getDevices(roomsString,devicesString,typesString);
+                                        that.getDevices(roomsString,devicesString,typesString,callback);
                                         
                                         });
                                  });
