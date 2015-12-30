@@ -207,7 +207,7 @@ LightwaveRF.prototype.send = function(cmd, callback) {
 
 LightwaveRF.prototype.exec = function() {
     // Check if the queue has a reasonable size
-    if(this.queue.size > 10) this.queue.clear();
+    if(this.queue.length > 10) this.queue.clear();
     
     this.queue.push(arguments);
     this.process();
