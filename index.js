@@ -33,6 +33,9 @@ function LightwaveRF(config,callback) {
 	this.config = config;
 	
 	//Check config
+    if(!this.config.host) {
+        this.config.host = "web.trustsmartcloud.com"
+    }
 	if (!this.config.ip) {
 		throw new Error("The IP address must be specified in the config");
 	}
@@ -40,7 +43,7 @@ function LightwaveRF(config,callback) {
         console.log("No email or pin specified. The server configuration (rooms, devices, etc.) cannot be obtained")
     }
     else {
-        this.getConfiguration(this.config.email,this.config.pin,callback)
+        this.getConfiguration(this.config.email,this.config.pin,this.config.host,callback)
     }
 	
 	//Response listeners
@@ -320,11 +323,11 @@ LightwaveRF.prototype.getDevices = function(roomsString,devicesString,typesStrin
 /**
  * Connect to the server and obtain the configuration
  */
-LightwaveRF.prototype.getConfiguration = function(email,pin,callback){
+LightwaveRF.prototype.getConfiguration = function(email,pin,manager_host,callback){
     // An object of options to indicate where to post to
     var post_options = {
         //host: 'lightwaverfhost.co.uk',
-        host: 'web.trustsmartcloud.com',
+        host: manager_host,//'web.trustsmartcloud.com',
         port: 443,
         path: '/manager/index.php',
         method: 'POST',
