@@ -20,5 +20,6 @@
   },
     "dependencies": {
         "wait.for": ">=0.6.6"
+        "sleep": ">3.0.0"
     }
 }
