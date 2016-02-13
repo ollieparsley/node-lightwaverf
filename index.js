@@ -327,7 +327,7 @@ LightwaveRF.prototype.getDevices = function(roomsString,devicesString,typesStrin
         }
     }
     
-    if(callback) callback(this.devices);
+    if(callback) callback(this.devices, this);
     
     //console.log(this.devices);
 }
@@ -356,7 +356,7 @@ LightwaveRF.prototype.getFileConfiguration = function(file, callback) {
         });
 
         if (callback) {
-            callback(that.devices);
+            callback(that.devices, that);
         }
 
         //console.log(that.devices); 
