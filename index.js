@@ -181,7 +181,12 @@ LightwaveRF.prototype.turnRoomOff = function(roomId, callback) {
  */
 LightwaveRF.prototype.setDeviceDim = function(roomId, deviceId, dimPercentage , callback) {
 	var dimAmount = parseInt(dimPercentage * 0.32, 10); //Dim is on a scale from 0 to 32
-	this.exec("!R" + roomId + "D" + deviceId + "FdP" + dimAmount + "|\0", callback);
+
+    if (dimAmount === 0) {
+        this.turnDeviceOff(roomId, deviceId, callback);
+    } else {
+        this.exec("!R" + roomId + "D" + deviceId + "FdP" + dimAmount + "|\0", callback);
+    }
 }
 
 /**
