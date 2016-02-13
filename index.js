@@ -347,9 +347,9 @@ LightwaveRF.prototype.getFileConfiguration = function(file, callback) {
                 }).
                 forEach(function (device, deviceIndex) {
                     that.devices.push({
-                        roomId: roomIndex,
+                        roomId: room['id'] ? parseInt(room['id'].substring(1)) : roomIndex + 1,
                         roomName: room['name'],
-                        deviceId: deviceIndex,
+                        deviceId: device['id'] ? parseInt(device['id'].substring(1)) : deviceIndex + 1,
                         deviceName: device['name'],
                         deviceType: device['type']});
                 });
@@ -359,7 +359,7 @@ LightwaveRF.prototype.getFileConfiguration = function(file, callback) {
             callback(that.devices, that);
         }
 
-        //console.log(that.devices); 
+        //console.log(that.devices);
 
     } catch (e) {
         console.log('Unable to read YAML file ' + file);
