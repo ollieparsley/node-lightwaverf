@@ -3,7 +3,9 @@ var events = require('events');
 var dgram = require('dgram');
 var https = require('https');
 var querystring = require('querystring');
-var wait = require('wait.for')
+var fs = require('fs');
+var wait = require('wait.for');
+var yaml = require('js-yaml');
 
 /**
  * LightwaveRF API
@@ -32,18 +34,23 @@ function LightwaveRF(config,callback) {
 	//Config
 	this.config = config;
 	
-	//Check config
-    if(!this.config.host) {
-        this.config.host = "web.trustsmartcloud.com"
-    }
-	if (!this.config.ip) {
-		throw new Error("The IP address must be specified in the config");
-	}
-    if(!this.config.email || !this.config.pin) {
-        console.log("No email or pin specified. The server configuration (rooms, devices, etc.) cannot be obtained")
-    }
-    else {
-        this.getConfiguration(this.config.email,this.config.pin,this.config.host,callback)
+    if (this.config.file) {
+        this.getFileConfiguration(this.config.file, callback);
+
+    } else {
+    	//Check config
+        if(!this.config.host) {
+            this.config.host = "web.trustsmartcloud.com"
+        }
+    	if (!this.config.ip) {
+    		throw new Error("The IP address must be specified in the config");
+    	}
+        if(!this.config.email || !this.config.pin) {
+            console.log("No email or pin specified. The server configuration (rooms, devices, etc.) cannot be obtained")
+        }
+        else {
+            this.getConfiguration(this.config.email,this.config.pin,this.config.host,callback)
+        }
     }
 	
 	//Response listeners
@@ -181,7 +188,12 @@ LightwaveRF.prototype.turnRoomOff = function(roomId, callback) {
  */
 LightwaveRF.prototype.setDeviceDim = function(roomId, deviceId, dimPercentage , callback) {
 	var dimAmount = parseInt(dimPercentage * 0.32, 10); //Dim is on a scale from 0 to 32
-	this.exec("!R" + roomId + "D" + deviceId + "FdP" + dimAmount + "|\0", callback);
+
+    if (dimAmount === 0) {
+        this.turnDeviceOff(roomId, deviceId, callback);
+    } else {
+        this.exec("!R" + roomId + "D" + deviceId + "FdP" + dimAmount + "|\0", callback);
+    }
 }
 
 /**
@@ -315,10 +327,45 @@ LightwaveRF.prototype.getDevices = function(roomsString,devicesString,typesStrin
         }
     }
     
-    if(callback) callback(this.devices);
+    if(callback) callback(this.devices, this);
     
     //console.log(this.devices);
 }
+
+/**
+ * Read configuration from a lightwaverf Gem YAML file
+ */
+LightwaveRF.prototype.getFileConfiguration = function(file, callback) {
+    try {
+        var that = this,
+            yamlConfig = yaml.safeLoad(fs.readFileSync(file, 'utf8'));
+
+        yamlConfig['room'].forEach(function (room, roomIndex) {
+            room['device'].
+                filter(function (device) {
+                    return device['type'] == 'O' || device['type'] == 'D';
+                }).
+                forEach(function (device, deviceIndex) {
+                    that.devices.push({
+                        roomId: room['id'] ? parseInt(room['id'].substring(1)) : roomIndex + 1,
+                        roomName: room['name'],
+                        deviceId: device['id'] ? parseInt(device['id'].substring(1)) : deviceIndex + 1,
+                        deviceName: device['name'],
+                        deviceType: device['type']});
+                });
+        });
+
+        if (callback) {
+            callback(that.devices, that);
+        }
+
+        //console.log(that.devices);
+
+    } catch (e) {
+        console.log('Unable to read YAML file ' + file);
+        console.log(e);
+    }
+};
 
 /**
  * Connect to the server and obtain the configuration

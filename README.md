@@ -14,6 +14,10 @@ A NodeJS library for controlling devices using the LightwaveRF Wi-Fi Link
     var LightwaveRF = require("lightwaverf");
     var lw = new LightwaveRF({ip:"192.168.1.123",email:"name@host.com",pin:"0123"});
 
+Or to read from a [LightwareRF Gem](https://github.com/pauly/lightwaverf) format YAML file:
+
+    var lw = new LightwaveRF({ip:"192.168.1.123", file:"/a/config/file.yml"});
+
 ### Turn a device on
 
 To turn a device on you need to have set it up using the mobile or web app. You need the room ID and the device ID.
