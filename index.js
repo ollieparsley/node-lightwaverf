@@ -3,7 +3,9 @@ var events = require('events');
 var dgram = require('dgram');
 var https = require('https');
 var querystring = require('querystring');
-var wait = require('wait.for')
+var fs = require('fs');
+var wait = require('wait.for');
+var yaml = require('js-yaml');
 
 /**
  * LightwaveRF API
@@ -12,13 +14,17 @@ var wait = require('wait.for')
  *
  * An instance of the LightwaveRF API
  */
-function LightwaveRF(config) {
+function LightwaveRF(config,callback) {
     if (!(this instanceof LightwaveRF))  {
         return new LightwaveRF(config);
     }
     this.timeout = config.timeout || 1000;
     this.queue = [];
     this.ready = true;
+    
+    this.devices = [];//[{roomId:0,roomName:'',
+    //deviceId:0,deviceName:'',
+    //deviceType:''}];
 
 	events.EventEmitter.call(this);
 	
@@ -28,15 +34,23 @@ function LightwaveRF(config) {
 	//Config
 	this.config = config;
 	
-	//Check config
-	if (!this.config.ip) {
-		throw new Error("The IP address must be specified in the config");
-	}
-    if(!this.config.email || !this.config.pin) {
-        console.log("No email or pin specified. The server configuration (rooms, devices, etc.) cannot be obtained")
-    }
-    else {
-        this.getConfiguration(this.config.email,this.config.pin)
+    if (this.config.file) {
+        this.getFileConfiguration(this.config.file, callback);
+
+    } else {
+    	//Check config
+        if(!this.config.host) {
+            this.config.host = "web.trustsmartcloud.com"
+        }
+    	if (!this.config.ip) {
+    		throw new Error("The IP address must be specified in the config");
+    	}
+        if(!this.config.email || !this.config.pin) {
+            console.log("No email or pin specified. The server configuration (rooms, devices, etc.) cannot be obtained")
+        }
+        else {
+            this.getConfiguration(this.config.email,this.config.pin,this.config.host,callback)
+        }
     }
 	
 	//Response listeners
@@ -174,7 +188,12 @@ LightwaveRF.prototype.turnRoomOff = function(roomId, callback) {
  */
 LightwaveRF.prototype.setDeviceDim = function(roomId, deviceId, dimPercentage , callback) {
 	var dimAmount = parseInt(dimPercentage * 0.32, 10); //Dim is on a scale from 0 to 32
-	this.exec("!R" + roomId + "D" + deviceId + "FdP" + dimAmount + "|\0", callback);
+
+    if (dimAmount === 0) {
+        this.turnDeviceOff(roomId, deviceId, callback);
+    } else {
+        this.exec("!R" + roomId + "D" + deviceId + "FdP" + dimAmount + "|\0", callback);
+    }
 }
 
 /**
@@ -203,7 +222,7 @@ LightwaveRF.prototype.send = function(cmd, callback) {
 
 LightwaveRF.prototype.exec = function() {
     // Check if the queue has a reasonable size
-    if(this.queue.size > 10) this.queue.clear();
+    if(this.queue.length > 10) this.queue.clear();
     
     this.queue.push(arguments);
     this.process();
@@ -259,10 +278,7 @@ LightwaveRF.prototype.process = function() {
 /**
  * Parser to get de devices from https POST
  */
-LightwaveRF.prototype.getDevices = function(roomsString,devicesString,typesString){
-    var devices = [];//[{roomId:0,roomName:'',
-                     //deviceId:0,deviceName:'',
-                     //deviceType:''}];
+LightwaveRF.prototype.getDevices = function(roomsString,devicesString,typesString,callback){
     
     var nrRooms = 8;
     var nrDevicesPerRoom = 10;
@@ -302,26 +318,63 @@ LightwaveRF.prototype.getDevices = function(roomsString,devicesString,typesStrin
             //   M: Mood (active)
             //   o: All Off
             if(dType == "O" || dType == "D") {
-                devices.push({roomId:rId,roomName:rName,
-                              deviceId:dId,deviceName:dName,
-                              deviceType:dType});
+                this.devices.push({roomId:rId,roomName:rName,
+                                   deviceId:dId,deviceName:dName,
+                                   deviceType:dType});
                 //console.log("devices=" + deviceName + " type=" + deviceType);
                 deviceCounter += 1;
             }
         }
     }
     
-    console.log(devices);
+    if(callback) callback(this.devices, this);
+    
+    //console.log(this.devices);
 }
+
+/**
+ * Read configuration from a lightwaverf Gem YAML file
+ */
+LightwaveRF.prototype.getFileConfiguration = function(file, callback) {
+    try {
+        var that = this,
+            yamlConfig = yaml.safeLoad(fs.readFileSync(file, 'utf8'));
+
+        yamlConfig['room'].forEach(function (room, roomIndex) {
+            room['device'].
+                filter(function (device) {
+                    return device['type'] == 'O' || device['type'] == 'D';
+                }).
+                forEach(function (device, deviceIndex) {
+                    that.devices.push({
+                        roomId: room['id'] ? parseInt(room['id'].substring(1)) : roomIndex + 1,
+                        roomName: room['name'],
+                        deviceId: device['id'] ? parseInt(device['id'].substring(1)) : deviceIndex + 1,
+                        deviceName: device['name'],
+                        deviceType: device['type']});
+                });
+        });
+
+        if (callback) {
+            callback(that.devices, that);
+        }
+
+        //console.log(that.devices);
+
+    } catch (e) {
+        console.log('Unable to read YAML file ' + file);
+        console.log(e);
+    }
+};
 
 /**
  * Connect to the server and obtain the configuration
  */
-LightwaveRF.prototype.getConfiguration = function(email,pin){
+LightwaveRF.prototype.getConfiguration = function(email,pin,manager_host,callback){
     // An object of options to indicate where to post to
     var post_options = {
         //host: 'lightwaverfhost.co.uk',
-        host: 'web.trustsmartcloud.com',
+        host: manager_host,//'web.trustsmartcloud.com',
         port: 443,
         path: '/manager/index.php',
         method: 'POST',
@@ -335,6 +388,7 @@ LightwaveRF.prototype.getConfiguration = function(email,pin){
     var post_data = 'pin=' + pin + '&email=' + email;
     
     // Set up the request
+    var that = this;
     var post_req = https.request(post_options, function(res) {
                                  var body = '';
                                  res.setEncoding('utf8');
@@ -361,7 +415,7 @@ LightwaveRF.prototype.getConfiguration = function(email,pin){
                                         var indexRoomsEnd = roomsString.indexOf(';');
                                         roomsString = roomsString.substring(0,indexRoomsEnd);
                                         
-                                        console.log(roomsString);
+                                        //console.log(roomsString);
                                         
                                         // Get devices
                                         // Devices - gDeviceNames is a collection of 80 values, structured in blocks of ten values for each room:
@@ -374,7 +428,7 @@ LightwaveRF.prototype.getConfiguration = function(email,pin){
                                         var indexDevicesEnd = devicesString.indexOf(';');
                                         devicesString = devicesString.substring(0,indexDevicesEnd);
                                         
-                                        console.log(devicesString);
+                                        //console.log(devicesString);
                                         
                                         // Get device types
                                         //   O: On/Off Switch
@@ -393,9 +447,9 @@ LightwaveRF.prototype.getConfiguration = function(email,pin){
                                         var indexTypesEnd = typesString.indexOf(';');
                                         typesString = typesString.substring(0,indexTypesEnd);
                                         
-                                        console.log(typesString);
+                                        //console.log(typesString);
                                         
-                                        LightwaveRF.prototype.getDevices(roomsString,devicesString,typesString);
+                                        that.getDevices(roomsString,devicesString,typesString,callback);
                                         
                                         });
                                  });
