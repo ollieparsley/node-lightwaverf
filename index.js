@@ -151,7 +151,7 @@ LightwaveRF.prototype.turnDeviceOff = function(roomId, deviceId, callback) {
 }
 
 /**
- * Turn a device off
+ * Turn a device on
  * 
  * @param integer  roomId   The room ID
  * @param integer  deviceId The device ID
@@ -162,6 +162,48 @@ LightwaveRF.prototype.turnDeviceOff = function(roomId, deviceId, callback) {
 LightwaveRF.prototype.turnDeviceOn = function(roomId, deviceId, callback) {
 	var state = "1";
 	this.exec("!R" + roomId + "D" + deviceId + "F" + state + "|\0", callback);
+}
+
+/**
+ * Open a device
+ *
+ * @param integer  roomId   The room ID
+ * @param integer  deviceId The device ID
+ * @param Function callback The callback for if there are any errors
+ *
+ * @return void
+ */
+LightwaveRF.prototype.openDevice = function(roomId, deviceId, callback) {
+    var state = ">";
+    this.exec("!R" + roomId + "D" + deviceId + "F" + state + "|\0", callback);
+}
+
+/**
+ * Close a device
+ *
+ * @param integer  roomId   The room ID
+ * @param integer  deviceId The device ID
+ * @param Function callback The callback for if there are any errors
+ *
+ * @return void
+ */
+LightwaveRF.prototype.closeDevice = function(roomId, deviceId, callback) {
+    var state = "<";
+    this.exec("!R" + roomId + "D" + deviceId + "F" + state + "|\0", callback);
+}
+
+/**
+ * Stop a device
+ *
+ * @param integer  roomId   The room ID
+ * @param integer  deviceId The device ID
+ * @param Function callback The callback for if there are any errors
+ *
+ * @return void
+ */
+LightwaveRF.prototype.closeDevice = function(roomId, deviceId, callback) {
+    var state = "^";
+    this.exec("!R" + roomId + "D" + deviceId + "F" + state + "|\0", callback);
 }
 
 /**
