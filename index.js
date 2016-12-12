@@ -201,7 +201,7 @@ LightwaveRF.prototype.closeDevice = function(roomId, deviceId, callback) {
  *
  * @return void
  */
-LightwaveRF.prototype.closeDevice = function(roomId, deviceId, callback) {
+LightwaveRF.prototype.stopDevice = function(roomId, deviceId, callback) {
     var state = "^";
     this.exec("!R" + roomId + "D" + deviceId + "F" + state + "|\0", callback);
 }
