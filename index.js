@@ -74,6 +74,11 @@ function LightwaveRF(config,callback) {
 		
 		//Message
 		message = message.toString("utf8");
+        
+        // Skip json formats (these start with *!)
+        if(message.startsWith("*!")) {
+            return false;
+        }
 		
 		//Split off the code for the message
 		var parts = message.split(",");
@@ -81,7 +86,7 @@ function LightwaveRF(config,callback) {
 		var content = parts.join(",").replace(/(\r\n|\n|\r)/gm,"");
 		
 		//Check to see if we have a relevant listener
-		var responseListenerData = this.responseListeners[code.toString()];
+		var responseListenerData = this.responseListeners[parseInt(code, 10).toString()];
 		if (responseListenerData) {
 			//Call the response listener
 			responseListenerData.listener(code,content);
@@ -264,8 +269,7 @@ LightwaveRF.prototype.send = function(cmd, callback) {
 
 LightwaveRF.prototype.exec = function() {
     // Check if the queue has a reasonable size
-    while(this.queue.length > 100)
-    {
+    while(this.queue.length > 100) {
         this.queue.pop();
     }
     
