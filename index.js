@@ -4,7 +4,6 @@ var dgram = require('dgram');
 var https = require('https');
 var querystring = require('querystring');
 var fs = require('fs');
-var wait = require('wait.for');
 var yaml = require('js-yaml');
 
 /**
