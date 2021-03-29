@@ -4,8 +4,6 @@ var dgram = require('dgram');
 var https = require('https');
 var querystring = require('querystring');
 var fs = require('fs');
-var wait = require('wait.for');
-var yaml = require('js-yaml');
 
 /**
  * LightwaveRF API
@@ -74,6 +72,11 @@ function LightwaveRF(config,callback) {
 		
 		//Message
 		message = message.toString("utf8");
+        
+        // Skip json formats (these start with *!)
+        if(message.startsWith("*!")) {
+            return false;
+        }
 		
 		//Split off the code for the message
 		var parts = message.split(",");
@@ -81,7 +84,7 @@ function LightwaveRF(config,callback) {
 		var content = parts.join(",").replace(/(\r\n|\n|\r)/gm,"");
 		
 		//Check to see if we have a relevant listener
-		var responseListenerData = this.responseListeners[code.toString()];
+		var responseListenerData = this.responseListeners[parseInt(code, 10).toString()];
 		if (responseListenerData) {
 			//Call the response listener
 			responseListenerData.listener(code,content);
@@ -151,7 +154,7 @@ LightwaveRF.prototype.turnDeviceOff = function(roomId, deviceId, callback) {
 }
 
 /**
- * Turn a device off
+ * Turn a device on
  * 
  * @param integer  roomId   The room ID
  * @param integer  deviceId The device ID
@@ -162,6 +165,48 @@ LightwaveRF.prototype.turnDeviceOff = function(roomId, deviceId, callback) {
 LightwaveRF.prototype.turnDeviceOn = function(roomId, deviceId, callback) {
 	var state = "1";
 	this.exec("!R" + roomId + "D" + deviceId + "F" + state + "|\0", callback);
+}
+
+/**
+ * Open a device
+ *
+ * @param integer  roomId   The room ID
+ * @param integer  deviceId The device ID
+ * @param Function callback The callback for if there are any errors
+ *
+ * @return void
+ */
+LightwaveRF.prototype.openDevice = function(roomId, deviceId, callback) {
+    var state = ">";
+    this.exec("!R" + roomId + "D" + deviceId + "F" + state + "|\0", callback);
+}
+
+/**
+ * Close a device
+ *
+ * @param integer  roomId   The room ID
+ * @param integer  deviceId The device ID
+ * @param Function callback The callback for if there are any errors
+ *
+ * @return void
+ */
+LightwaveRF.prototype.closeDevice = function(roomId, deviceId, callback) {
+    var state = "<";
+    this.exec("!R" + roomId + "D" + deviceId + "F" + state + "|\0", callback);
+}
+
+/**
+ * Stop a device
+ *
+ * @param integer  roomId   The room ID
+ * @param integer  deviceId The device ID
+ * @param Function callback The callback for if there are any errors
+ *
+ * @return void
+ */
+LightwaveRF.prototype.stopDevice = function(roomId, deviceId, callback) {
+    var state = "^";
+    this.exec("!R" + roomId + "D" + deviceId + "F" + state + "|\0", callback);
 }
 
 /**
@@ -222,7 +267,9 @@ LightwaveRF.prototype.send = function(cmd, callback) {
 
 LightwaveRF.prototype.exec = function() {
     // Check if the queue has a reasonable size
-    if(this.queue.length > 10) this.queue.clear();
+    while(this.queue.length > 100) {
+        this.queue.pop();
+    }
     
     this.queue.push(arguments);
     this.process();
@@ -331,41 +378,6 @@ LightwaveRF.prototype.getDevices = function(roomsString,devicesString,typesStrin
     
     //console.log(this.devices);
 }
-
-/**
- * Read configuration from a lightwaverf Gem YAML file
- */
-LightwaveRF.prototype.getFileConfiguration = function(file, callback) {
-    try {
-        var that = this,
-            yamlConfig = yaml.safeLoad(fs.readFileSync(file, 'utf8'));
-
-        yamlConfig['room'].forEach(function (room, roomIndex) {
-            room['device'].
-                filter(function (device) {
-                    return device['type'] == 'O' || device['type'] == 'D';
-                }).
-                forEach(function (device, deviceIndex) {
-                    that.devices.push({
-                        roomId: room['id'] ? parseInt(room['id'].substring(1)) : roomIndex + 1,
-                        roomName: room['name'],
-                        deviceId: device['id'] ? parseInt(device['id'].substring(1)) : deviceIndex + 1,
-                        deviceName: device['name'],
-                        deviceType: device['type']});
-                });
-        });
-
-        if (callback) {
-            callback(that.devices, that);
-        }
-
-        //console.log(that.devices);
-
-    } catch (e) {
-        console.log('Unable to read YAML file ' + file);
-        console.log(e);
-    }
-};
 
 /**
  * Connect to the server and obtain the configuration
